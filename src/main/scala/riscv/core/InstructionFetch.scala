@@ -27,9 +27,12 @@ class InstructionFetch extends Module {
     // lab3(InstructionFetch) begin
 
     // if jump
-    when(io.jump_flag_id) {
+    when(io.jump_flag_id) 
+    {
         pc  := io.jump_address_id
-    }.otherwise { // else pc + 4
+    }
+    .otherwise 
+    { // else pc + 4
         pc  := pc + 4.U
     }
     

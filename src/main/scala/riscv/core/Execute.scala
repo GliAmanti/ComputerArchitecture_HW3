@@ -38,7 +38,8 @@ class Execute extends Module {
 
   // lab3(Execute) begin
 
-    alu.io.func := alu_ctrl.io.alu_funct
+  alu.io.func := alu_ctrl.io.alu_funct
+
   alu.io.op1 := MuxLookup(io.aluop1_source, io.reg1_data)(IndexedSeq(
       0.U -> io.reg1_data,
       1.U -> io.instruction_address
@@ -52,6 +53,7 @@ class Execute extends Module {
   //                   U-type (lui, auipc),
   //                   S-type (rs2 value sent to MemControl, ALU computes rs1 + imm.)
   //                   B-type (rs2 compares with rs1 in jump judge unit, ALU computes jump address PC+imm.)
+  
   alu.io.op2 := MuxLookup(io.aluop2_source, io.immediate)(IndexedSeq(
       0.U -> io.reg2_data,
       1.U -> io.immediate
