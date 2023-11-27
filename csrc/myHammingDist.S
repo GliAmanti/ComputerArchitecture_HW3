@@ -1,11 +1,19 @@
+.global _start
+
+.set SYSEXIT,  93
+.set SYSWRITE, 64
+.set SYSINT, 11
+
 .data
     test_data_1: .dword 0x0000000000100000, 0x00000000000FFFFF # HD(1048576, 1048575) = 21
     test_data_2: .dword 0x0000000000000001, 0x7FFFFFFFFFFFFFFE # HD(1, 9223372036854775806) = 63
     test_data_3: .dword 0x000000028370228F, 0x000000028370228F # HD(10795098767, 10795098767) = 0
-    msg_string: .string "\nHamming Distance="
+.section .rodata
+    msg1: .ascii "\nHamming Distance="
+    msg2: .ascii "\nCycle counts :" 
     
 .text
-main:
+_start:
     addi sp, sp, -12
     
     # push pointers of test data onto the stack
@@ -15,41 +23,68 @@ main:
     sw t0, 4(sp)
     la t0, test_data_3
     sw t0, 8(sp)
-
-    li s9, 0x0
  
     # initialize main_loop
     addi s0, zero, 3    # s0 : number of test case
     addi s1, zero, 0    # s1 : test case counter
     addi s2, sp, 0      # s2 : points to test_data_1
 
+    li s9, 0x0          # base memory address to store the result
+
+# get_cycles_init:
+#    csrr t1, cycleh
+#    csrr s10, cycle
+#    csrr t2, cycleh
+#    bne t1, t2, get_cycles_init
+
 main_loop:
-    la a0, msg_string
-    li a7, 4            # print string
+    li a7, SYSWRITE     # "write" syscall
+    li a0, 1            # 1 = standard output (stdout)
+    la a1, msg1   	    # load address of msg string
+    li a2, 18     	    # length of msg string
     ecall
     
     lw a0, 0(s2)        # a0 : pointer to the first data in test_data_1
     addi a1, a0, 8      # a1 : pointer to the second data in test_data_1
     jal ra, hd_func
     
-    # print the result #
-    li a7, 1            # print integer
-    ecall               # print result of hd_cal (which is in a0)
+    # print the result
+#    li a7, SYSINT	    # "printint" syscall
+#    add a1, a0, x0      # address of string(move result of hd_cal to a1) # the original result of hd_cal is in a0
+#    li a0, 1 		    # 1 = standard output (stdout)
+#    ecall               # print result of hd_cal
 
     # store the result for hw3
-    addi t0, sp, 0
     slli t1, s1, 2
-    add t0, t0, t1
+    add t0, s9, t1
     sw a0, 0(t0)    
     
     addi s2, s2, 4      # s2 : points to next test_data
     addi s1, s1, 1      # counter++
     bne s1, s0, main_loop
+
+# get_cycles_end:
+#   csrr t1, cycleh
+#   csrr s11, cycle
+#   csrr t2, cycleh
+#   bne t1, t2, get_cycles_end
+#   sub s11, s11, s10
+    
+    # print the result
+#   li a7, SYSWRITE     # "write" syscall
+#   li a0, 1            # 1 = standard output (stdout)
+#   la a1, msg2   	    # load address of msg string
+#   li a2, 15     	    # length of msg string
+#   ecall
+
+#    li a7, SYSINT	    # "printint" syscall
+#    add a1, s11, x0     # address of string(move result of hd_cal to a1)
+#    li a0, 1 		    # 1 = standard output (stdout)
+#    ecall               # print result of get_cycles_end
     
     addi sp, sp, 12
-    
-    # Exit program
-    li a7, 10
+    li a0, 0		    # 0 signals success
+    li a7, SYSEXIT      # "exit" syscall
     ecall
 
 # hamming distance function
@@ -84,7 +119,7 @@ cmp:
     mv a1, s5
     
 jmpClz:
-    jal ra clz
+    jal ra, clz
     li s3, 64           # s3: 64
     sub s3, s3, a0      # s3: 64 - max_digit (return value saved in a0)
     addi s2, x0, 1      # s2: 1
@@ -104,7 +139,7 @@ hd_func_end:
 hd_cal_loop:
     and t0, s6, s2
     bne t0, s2, hd_cal_shift
-    addi s8, s8, 1              # Hdist += 1
+    addi s8, s8, 1      # Hdist += 1
 
 hd_cal_shift:
     # (s7 s6) = x >> 1
@@ -116,7 +151,7 @@ hd_cal_shift:
 hd_check_loop:
     addi s3, s3, -1
     bne s3, zero, hd_cal_loop
-    mv a0, s8            # save return value to a0
+    mv a0, s8           # save return value to a0
     j hd_func_end
 
 # count leading zeros
