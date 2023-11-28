@@ -2,15 +2,18 @@
 
 .set SYSEXIT,  93
 .set SYSWRITE, 64
-.set SYSINT, 11
 
 .data
     test_data_1: .dword 0x0000000000100000, 0x00000000000FFFFF # HD(1048576, 1048575) = 21
+                #  .set test_data_1_size, .test_data_1
     test_data_2: .dword 0x0000000000000001, 0x7FFFFFFFFFFFFFFE # HD(1, 9223372036854775806) = 63
+                # .set test_data_2_size, .test_data_2
     test_data_3: .dword 0x000000028370228F, 0x000000028370228F # HD(10795098767, 10795098767) = 0
+                # .set test_data_3_size, .test_data_3
 .section .rodata
     msg1: .ascii "\nHamming Distance="
     msg2: .ascii "\nCycle counts :" 
+    buffer: .byte 0, 0, 0, 0
     
 .text
 _start:
@@ -49,10 +52,19 @@ main_loop:
     jal ra, hd_func
     
     # print the result
-#    li a7, SYSINT	    # "printint" syscall
-#    add a1, a0, x0      # address of string(move result of hd_cal to a1) # the original result of hd_cal is in a0
-#    li a0, 1 		    # 1 = standard output (stdout)
-#    ecall               # print result of hd_cal
+    addi sp, sp, -16
+    sw ra, 0(sp)
+    sw a0, 4(sp)
+    sw a1, 8(sp)
+    sw a2, 12(sp)
+    # addi a0, x0, 33
+    addi a1, x0, 4
+    jal ra, print_ascii
+    lw ra, 0(sp)
+    lw a0, 4(sp)
+    lw a1, 8(sp)
+    lw a2, 12(sp)
+    addi sp, sp, 16
 
     # store the result for hw3
     slli t1, s1, 2
@@ -97,14 +109,14 @@ hd_func:
     sw s3, 16(sp)       # 
 
     # get address of x0 and x1
-    mv s0, a0           # s0 : address of x0
-    mv s1, a1           # s1 : address of x1
+    add s0, a0, x0           # s0 : address of x0
+    add s1, a1, x0           # s1 : address of x1
 
     lw a0, 0(s0)        # a0 : lower part of x0
     lw a1, 4(s0)        # a1 : higher part of x0
     
-    mv s4, a0           # s5: lower part of x0
-    mv s5, a1           # s6: higher part of x0
+    add s4, a0, x0          # s5: lower part of x0
+    add s5, a1, x0          # s6: higher part of x0
     
     lw a0, 0(s1)        # a0 : lower part of x1
     lw a1, 4(s1)        # a1 : higher part of x1
@@ -115,15 +127,15 @@ hd_func:
 # compare with x0 and x1   
 cmp:
     blt s5, a1, jmpClz  # compare the higher part only
-    mv a0, s4
-    mv a1, s5
+    add a0, s4, x0
+    add a1, s5, x0
     
 jmpClz:
     jal ra, clz
     li s3, 64           # s3: 64
     sub s3, s3, a0      # s3: 64 - max_digit (return value saved in a0)
     addi s2, x0, 1      # s2: 1
-    mv s8, zero         # s8: hd counter
+    add s8, x0, x0         # s8: hd counter
     j hd_cal_loop
 
 hd_func_end:
@@ -151,7 +163,7 @@ hd_cal_shift:
 hd_check_loop:
     addi s3, s3, -1
     bne s3, zero, hd_cal_loop
-    mv a0, s8           # save return value to a0
+    add a0, s8, x0           # save return value to a0
     j hd_func_end
 
 # count leading zeros
@@ -266,8 +278,8 @@ clz_count_ones:
 
     # x += (x >> 32); #
     # (t1 t0) = x >> 32
-    mv t0, a1
-    mv t1, zero
+    add t0, a1, x0
+    add t1, x0, x0
     
     add a0, a0, t0
     sltu t3, a0, t0     # t3 : carry bit
@@ -283,4 +295,42 @@ clz_count_ones:
     
     lw ra, 0(sp)
     addi sp, sp, 4
+    ret
+
+print_ascii:
+    addi t0, a0, 0# load integer
+    li t1, 0      # t1 = quotient
+    li t2, 0      # t2 = reminder
+    li t3, 10     # t3 = divisor
+    addi t4, a1, 0# t4 = count round
+
+check_less_then_ten:
+    bge t0, t3, divide
+    addi t2, t0, 0
+    addi t0, t1, 0    # t0 = quotient
+    j to_ascii
+
+divide:
+    sub t0, t0, t3
+    addi t1, t1, 1
+    j check_less_then_ten
+
+to_ascii:
+    addi t2, t2, 48	# reminder to ascii
+    la t5, buffer  # t5 = buffer addr
+    addi t4, t4, -1
+    add t5, t5, t4
+    sb t2, 0(t5)
+
+    # counter = 0 exit
+    beqz t4, convert_loop_done
+    li t1, 0 # refresh quotient
+    j check_less_then_ten
+
+convert_loop_done:
+    li a0, 1
+    la a1, buffer
+    li a2, 4
+    li a7, SYSWRITE
+    ecall
     ret
