@@ -1,3 +1,4 @@
+.org 0
 .global _start
 
 .set SYSEXIT,  93
@@ -5,7 +6,7 @@
 
 .data
     test_data_1: .dword 0x0000000000100000, 0x00000000000FFFFF # HD(1048576, 1048575) = 21
-                #  .set test_data_1_size, .test_data_1
+                # .set test_data_1_size, .test_data_1
     test_data_2: .dword 0x0000000000000001, 0x7FFFFFFFFFFFFFFE # HD(1, 9223372036854775806) = 63
                 # .set test_data_2_size, .test_data_2
     test_data_3: .dword 0x000000028370228F, 0x000000028370228F # HD(10795098767, 10795098767) = 0
@@ -32,7 +33,7 @@ _start:
     addi s1, zero, 0    # s1 : test case counter
     addi s2, sp, 0      # s2 : points to test_data_1
 
-    li s9, 0x0          # base memory address to store the result
+    li s9, 0x4          # base memory address to store the result
 
 # get_cycles_init:
 #    csrr t1, cycleh
@@ -58,7 +59,7 @@ main_loop:
     sw a1, 8(sp)
     sw a2, 12(sp)
     # addi a0, x0, 33
-    addi a1, x0, 4
+    addi a1, x0, 2      # default: result is 2 digits number
     jal ra, print_ascii
     lw ra, 0(sp)
     lw a0, 4(sp)
